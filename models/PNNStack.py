@@ -1,8 +1,8 @@
 import torch
 import torch.nn.functional as F
-from torch.nn import ModuleList, Embedding
+from torch.nn import ModuleList
 from torch.nn import Sequential, ReLU, Linear
-from torch_geometric.nn import PNAConv, BatchNorm, global_add_pool, global_mean_pool
+from torch_geometric.nn import PNAConv, BatchNorm, global_mean_pool
 
 
 class PNNStack(torch.nn.Module):
@@ -13,38 +13,40 @@ class PNNStack(torch.nn.Module):
         scalers = ["identity", "amplification", "attenuation"]
 
         self.dropout = 0.25
+        self.hidden_dim = hidden_dim
+        self.num_conv_layers = num_conv_layers
         self.convs = ModuleList()
         self.batch_norms = ModuleList()
         self.convs.append(
             PNAConv(
                 in_channels=input_dim,
-                out_channels=hidden_dim,
+                out_channels=self.hidden_dim,
                 aggregators=aggregators,
                 scalers=scalers,
                 deg=deg,
-                towers=5,
+                towers=2,
                 pre_layers=1,
                 post_layers=1,
                 divide_input=False,
             )
         )
-        for _ in range(num_conv_layers):
+        for _ in range(self.num_conv_layers):
             conv = PNAConv(
-                in_channels=hidden_dim,
-                out_channels=hidden_dim,
+                in_channels=self.hidden_dim,
+                out_channels=self.hidden_dim,
                 aggregators=aggregators,
                 scalers=scalers,
                 deg=deg,
-                towers=5,
+                towers=2,
                 pre_layers=1,
                 post_layers=1,
                 divide_input=False,
             )
             self.convs.append(conv)
-            self.batch_norms.append(BatchNorm(hidden_dim))
+            self.batch_norms.append(BatchNorm(self.hidden_dim))
 
         self.mlp = Sequential(
-            Linear(hidden_dim, 50), ReLU(), Linear(50, 25), ReLU(), Linear(25, 1)
+            Linear(self.hidden_dim, 50), ReLU(), Linear(50, 25), ReLU(), Linear(25, 1)
         )
 
     def forward(self, data):
