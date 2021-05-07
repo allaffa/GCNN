@@ -12,11 +12,28 @@ from data_loading_and_transformation.dataset_descriptors import (
     StructureFeatures,
     Dataset,
 )
+import torch.distributed as dist
+
 import os
 from random import shuffle
 from utilities.models_setup import generate_model
 from utilities.visualizer import Visualizer
 from tqdm import tqdm
+
+
+def setup_mpi(rank, world_size):
+    os.environ["MASTER_ADDR"] = "localhost"
+    os.environ["MASTER_PORT"] = "12355"
+
+    # Set backend based on hardware recommendations.
+    backend = "gloo"
+    if torch.cuda.is_available():
+        backend = "nccl"
+    dist.init_process_group(backend, rank=rank, world_size=world_size)
+
+
+def cleanup_mpi():
+    dist.destroy_process_group()
 
 
 def train_validate_test_hyperopt(

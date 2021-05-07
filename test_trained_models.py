@@ -1,5 +1,5 @@
 import torch
-import os
+import os, sys
 import tqdm
 import json
 import pytest
@@ -13,18 +13,25 @@ from data_loading_and_transformation.dataset_descriptors import (
     Dataset,
 )
 from data_loading_and_transformation.dataset_descriptors import AtomFeatures
-from utilities.utils import dataset_loading_and_splitting, test
+from utilities.utils import dataset_loading_and_splitting, test, setup_mpi, cleanup_mpi
 from utilities.models_setup import generate_model
 from utilities.visualizer import Visualizer
 
+import torch.multiprocessing as mp
+
 
 def best_models(
+    rank,
+    num_ranks,
     model_index,
     models_dir="./reproducing_results/best_performing_models/",
     plot_results=False,
 ):
     expected_error = [5.349268349268197e-05, 0.09692384524119867, 7.984326111682e-05]
     EPSILON = 1e-8
+
+    # MPI init
+    setup_mpi(rank, num_ranks)
 
     available_models = sorted(os.listdir(models_dir))
     try:
@@ -51,6 +58,7 @@ def best_models(
         input_dim=len(config["atom_features"]),
         dataset=train_loader.dataset,
         config=config,
+        rank=rank,
     )
     state_dict = torch.load(
         f"./{models_dir}{chosen_model}/{chosen_model}.pk",
@@ -71,16 +79,16 @@ def best_models(
         )
         visualizer.create_scatter_plot(save_plot=False)
 
+    cleanup_mpi()
+
 
 @pytest.mark.parametrize("model_index", [0, 1, 2])
 def pytest_best_models(model_index):
-    best_models(model_index)
+    mp.spawn(best_models, args=(1, model_index), nprocs=1, join=True)
 
 
 if __name__ == "__main__":
-    model_index = int(
-        input(
-            "Type the number of the model for which you want to reproduce the results with (0, 1, or 2): "
-        )
-    )
-    best_models(model_index, plot_results=True)
+    model_index = int(sys.argv[1])
+    num_ranks = int(sys.argv[2])
+
+    mp.spawn(best_models, args=(num_ranks, model_index), nprocs=num_ranks, join=False)

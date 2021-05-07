@@ -6,10 +6,15 @@ import torch
 from torch_geometric.data import Data
 from torch_geometric.utils import degree
 
+from torch.nn.parallel import DistributedDataParallel as DDP
 
-def generate_model(model_type: str, input_dim: int, dataset: [Data], config: dict):
+
+def generate_model(
+    model_type: str, input_dim: int, dataset: [Data], config: dict, rank: int
+):
     torch.manual_seed(0)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    device = rank if torch.cuda.is_available() else "cpu"
 
     if model_type == "GIN":
         model = GINStack(
@@ -59,4 +64,6 @@ def generate_model(model_type: str, input_dim: int, dataset: [Data], config: dic
             num_conv_layers=config["num_conv_layers"],
         ).to(device)
 
-    return model
+    ddp_model = DDP(model, device_ids=None, output_device=None)
+
+    return ddp_model
