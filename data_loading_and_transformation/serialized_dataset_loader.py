@@ -1,7 +1,13 @@
-from torch_geometric.data import Data
-import torch
 import numpy as np
 import pickle
+import torch
+
+from torch_geometric.data import Data
+from torch.utils.data import Dataset
+from torch.utils.data.distributed import DistributedSampler
+from sklearn.model_selection import StratifiedShuffleSplit
+from tqdm import tqdm
+
 from data_loading_and_transformation.dataset_descriptors import (
     AtomFeatures,
 )
@@ -11,11 +17,9 @@ from data_loading_and_transformation.helper_functions import (
     order_candidates,
     resolve_neighbour_conflicts,
 )
-from tqdm import tqdm
-from sklearn.model_selection import StratifiedShuffleSplit
 
 
-class SerializedDataLoader:
+class SerializedDataLoader(Dataset):
     """A class used for loading existing structures from files that are lists of serialized structures.
     Most of the class methods are hidden, because from outside a caller needs only to know about
     load_serialized_data method.
