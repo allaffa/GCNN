@@ -10,7 +10,7 @@ from torch import nn
 from data_loading_and_transformation.dataset_descriptors import (
     AtomFeatures,
     StructureFeatures,
-    Dataset,
+    DataFeatures,
 )
 import torch.distributed as dist
 
@@ -192,35 +192,35 @@ def test(loader, model, output_dim):
 
 def dataset_loading_and_splitting(
     config: {},
-    chosen_dataset_option: Dataset,
+    chosen_dataset_option: DataFeatures,
 ):
 
-    if chosen_dataset_option == Dataset.CuAu:
-        dataset_CuAu = load_data(Dataset.CuAu.value, config)
+    if chosen_dataset_option == DataFeatures.CuAu:
+        dataset_CuAu = load_data(DataFeatures.CuAu.value, config)
         return split_dataset(
             dataset=dataset_CuAu,
             batch_size=config["batch_size"],
             perc_train=config["perc_train"],
         )
-    elif chosen_dataset_option == Dataset.FePt:
-        dataset_FePt = load_data(Dataset.FePt.value, config)
+    elif chosen_dataset_option == DataFeatures.FePt:
+        dataset_FePt = load_data(DataFeatures.FePt.value, config)
         return split_dataset(
             dataset=dataset_FePt,
             batch_size=config["batch_size"],
             perc_train=config["perc_train"],
         )
-    elif chosen_dataset_option == Dataset.FeSi:
-        dataset_FeSi = load_data(Dataset.FeSi.value, config)
+    elif chosen_dataset_option == DataFeatures.FeSi:
+        dataset_FeSi = load_data(DataFeatures.FeSi.value, config)
         return split_dataset(
             dataset=dataset_FeSi,
             batch_size=config["batch_size"],
             perc_train=config["perc_train"],
         )
     else:
-        dataset_CuAu = load_data(Dataset.CuAu.value, config)
-        dataset_FePt = load_data(Dataset.FePt.value, config)
-        dataset_FeSi = load_data(Dataset.FeSi.value, config)
-        if chosen_dataset_option == Dataset.CuAu_FePt_SHUFFLE:
+        dataset_CuAu = load_data(DataFeatures.CuAu.value, config)
+        dataset_FePt = load_data(DataFeatures.FePt.value, config)
+        dataset_FeSi = load_data(DataFeatures.FeSi.value, config)
+        if chosen_dataset_option == DataFeatures.CuAu_FePt_SHUFFLE:
             dataset_CuAu.extend(dataset_FePt)
             dataset_combined = dataset_CuAu
             shuffle(dataset_combined)
@@ -229,7 +229,7 @@ def dataset_loading_and_splitting(
                 batch_size=config["batch_size"],
                 perc_train=config["perc_train"],
             )
-        elif chosen_dataset_option == Dataset.CuAu_TRAIN_FePt_TEST:
+        elif chosen_dataset_option == DataFeatures.CuAu_TRAIN_FePt_TEST:
 
             return combine_and_split_datasets(
                 dataset1=dataset_CuAu,
@@ -237,14 +237,14 @@ def dataset_loading_and_splitting(
                 batch_size=config["batch_size"],
                 perc_train=config["perc_train"],
             )
-        elif chosen_dataset_option == Dataset.FePt_TRAIN_CuAu_TEST:
+        elif chosen_dataset_option == DataFeatures.FePt_TRAIN_CuAu_TEST:
             return combine_and_split_datasets(
                 dataset1=dataset_FePt,
                 dataset2=dataset_CuAu,
                 batch_size=config["batch_size"],
                 perc_train=config["perc_train"],
             )
-        elif chosen_dataset_option == Dataset.FePt_FeSi_SHUFFLE:
+        elif chosen_dataset_option == DataFeatures.FePt_FeSi_SHUFFLE:
             dataset_FePt.extend(dataset_FeSi)
             dataset_combined = dataset_FePt
             shuffle(dataset_combined)

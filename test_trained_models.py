@@ -10,7 +10,7 @@ from data_loading_and_transformation.serialized_dataset_loader import (
 )
 from data_loading_and_transformation.dataset_descriptors import (
     AtomFeatures,
-    Dataset,
+    DataFeatures,
 )
 from data_loading_and_transformation.dataset_descriptors import AtomFeatures
 from utilities.utils import dataset_loading_and_splitting, test, setup_mpi, cleanup_mpi
@@ -45,7 +45,7 @@ def best_models(
     with open(f"{models_dir}{chosen_model}/config.json", "r") as f:
         config = json.load(f)
 
-    chosen_dataset_option = [x for x in Dataset if x.value == config["dataset_option"]][
+    chosen_dataset_option = [x for x in DataFeatures if x.value == config["dataset_option"]][
         0
     ]
     os.environ["SERIALIZED_DATA_PATH"] = os.getcwd()

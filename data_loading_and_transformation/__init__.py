@@ -1,4 +1,4 @@
-from .dataset_descriptors import AtomFeatures, Dataset, StructureFeatures
+from .dataset_descriptors import AtomFeatures, DataFeatures, StructureFeatures
 from .helper_functions import (
     distance_3D,
     order_candidates,

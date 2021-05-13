@@ -21,7 +21,7 @@ class StructureFeatures(Enum):
     MAGNETIC_MOMENT = 2
 
 
-class Dataset(Enum):
+class DataFeatures(Enum):
     """Class is an enum that represents available datasets and their combinations."""
 
     FePt = "FePt"
