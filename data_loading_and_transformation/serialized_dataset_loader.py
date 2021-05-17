@@ -31,6 +31,12 @@ class SerializedDataLoader(Dataset):
         atom and structure features are updated.
     """
 
+    def __getitem__(self, index):
+        """Fetch sample given key"""
+
+    def __len__(self):
+        """Return number of samples"""
+
     def load_serialized_data(
         self,
         dataset_path: str,
