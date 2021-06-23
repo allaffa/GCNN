@@ -29,12 +29,14 @@ jobs:
           sudo apt-get install -y libopenmpi-dev
           sudo apt-get clean
       - name: Cache venv
+        id: cache
         uses: actions/cache@v2
         with:
           path: ~/.venv
           key: ${{ runner.os }}-venv-${{ hashFiles('**/requirements*.txt') }}
           restore-keys: ${{ runner.os }}-venv-
       - name: Install dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
         run: |
           python -m venv ~/.venv
           ~/.venv/bin/activate
