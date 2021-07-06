@@ -27,11 +27,24 @@ class SerializedDataLoader:
         atom and structure features are updated.
     """
 
-    def load_serialized_data(
-        self,
-        dataset_path: str,
-        config,
-    ):
+    config = {}
+    radius = 0.0
+    periodic = False
+    num_local = 0
+
+    def __init__(self, config):
+        """
+        Parameters
+        ----------
+        config: dict
+            Dictionary containing information needed to load the data and transform it, respectively: atom_features, radius, max_num_node_neighbours and predicted_value_option.
+        """
+        # This is only the NeuralNetwork section of the config.
+        self.config = config
+        self.radius = config["Architecture"]["radius"]
+        self.periodic = config["Architecture"]["periodic"] == "True"
+
+    def load_serialized_data(self, dataset_path: str):
         """Loads the serialized structures data from specified path, computes new edges for the structures based on the maximum number of neighbours and radius. Additionally,
         atom and structure features are updated.
 
@@ -39,8 +52,6 @@ class SerializedDataLoader:
         ----------
         dataset_path: str
             Directory path where files containing serialized structures are stored.
-        config: dict
-            Dictionary containing information needed to load the data and transform it, respectively: atom_features, radius, max_num_node_neighbours and predicted_value_option.
         Returns
         ----------
         [Data]
@@ -52,28 +63,28 @@ class SerializedDataLoader:
             _ = pickle.load(f)
             dataset = pickle.load(f)
 
-        edge_index, edge_distances = self.__compute_edges(
-            data=dataset[0],
-            radius=config["Architecture"]["radius"],
-            max_num_node_neighbours=config["Architecture"]["max_neighbours"],
-        )
+        # FIXME: this assumes all structures will have the same edges.
+        edge_index = self.__compute_edges(data=dataset[0])
 
-        for data in dataset:
+        for data in tqdm(dataset):
+            # FIXME: reusing positions/edges only works because each structure is identical.
+            # data = self.__make_periodic(data, len(data.x), config["radius"])
+            data.pos = dataset[0].pos
             data.edge_index = edge_index
-            data.edge_attr = edge_distances
+            # data.edge_attr = edge_distances
             self.__update_predicted_values(
-                config["Variables_of_interest"]["type"],
-                config["Variables_of_interest"]["output_index"],
+                self.config["Variables_of_interest"]["type"],
+                self.config["Variables_of_interest"]["output_index"],
                 data,
             )
             self.__update_atom_features(
-                config["Variables_of_interest"]["input_node_features"], data
+                self.config["Variables_of_interest"]["input_node_features"], data
             )
 
-        if "subsample_percentage" in config["Variables_of_interest"].keys():
+        if "subsample_percentage" in self.config["Variables_of_interest"].keys():
             return self.__stratified_sampling(
                 dataset=dataset,
-                subsample_percentage=config["Variables_of_interest"][
+                subsample_percentage=self.config["Variables_of_interest"][
                     "subsample_percentage"
                 ],
             )
@@ -113,7 +124,7 @@ class SerializedDataLoader:
             output_feature.append(feat_)
         data.y = torch.cat(output_feature, 0)
 
-    def __compute_edges(self, data: Data, radius: float, max_num_node_neighbours: int):
+    def __compute_edges(self, data: Data):
         """Computes edges of a structure depending on the maximum number of neighbour atoms that each atom can have
         and radius as a maximum distance of a neighbour.
 
@@ -121,63 +132,90 @@ class SerializedDataLoader:
         ----------
         data: Data
             A Data object representing a structure that has atoms.
-        radius: float
-            Radius or maximum distance of a neighbour atom.
-        max_num_node_neighbours: int
-            Maximum number of neighbour atoms an atom can have.
 
         Returns
         ----------
         torch.tensor
             Tensor filled with pairs (atom1_index, atom2_index) that represent edges or connections between atoms within the structure.
         """
-        print("Compute edges of the structure=adjacency matrix.")
-        num_of_atoms = len(data.x)
-        distance_matrix = np.zeros((num_of_atoms, num_of_atoms))
-        candidate_neighbours = {k: [] for k in range(num_of_atoms)}
+        # We do not build the adjacency matrix because the indexing for periodic atoms needs to reflect the local (not unique ghost) index.
+        print("Compute edges of the structure.")
+        self.num_local = len(data.x)
 
         print("Computing edge distances and adding candidate neighbours.")
-        for i in tqdm(range(num_of_atoms)):
-            for j in range(num_of_atoms):
-                distance = distance_3D(data.pos[i], data.pos[j])
-                distance_matrix[i, j] = distance
-                if distance_matrix[i, j] <= radius and i != j:
-                    candidate_neighbours[i].append(j)
+        # Guess needed neighbor allocation. # FIXME: this does not scale well.
+        edge_index = np.zeros((2, self.num_local ** 2 * 27), dtype=np.int64)
+        edge_count = 0
+        for i in tqdm(range(self.num_local)):
+            for j in range(self.num_local):
+                edge_count = self.__add_neighbor(
+                    data, edge_index, edge_count, data.pos[i], data.pos[j], i, j
+                )
 
-        ordered_candidate_neighbours = order_candidates(
-            candidate_neighbours=candidate_neighbours, distance_matrix=distance_matrix
-        )
-        collinear_neighbours = remove_collinear_candidates(
-            candidate_neighbours=ordered_candidate_neighbours,
-            distance_matrix=distance_matrix,
-        )
+        if self.periodic:
+            print("Adding periodic edges.")
+            edge_count = self.__make_periodic(data, edge_index, edge_count)
 
-        print("Removing collinear neighbours and resolving neighbour conflicts.")
-        adjacency_matrix = np.zeros((num_of_atoms, num_of_atoms))
-        for point, neighbours in tqdm(ordered_candidate_neighbours.items()):
-            neighbours = list(neighbours)
-            if point in collinear_neighbours.keys():
-                collinear_points = list(collinear_neighbours[point])
-                neighbours = [x for x in neighbours if x not in collinear_points]
+        # Remove uneeded allocated space.
+        edge_index = edge_index[:, : edge_count - 1]
+        # Convert to torch object.
+        edge_index = torch.tensor(edge_index)
 
-            neighbours = resolve_neighbour_conflicts(
-                point, neighbours, adjacency_matrix, max_num_node_neighbours
-            )
-            adjacency_matrix[point, neighbours] = 1
-            adjacency_matrix[neighbours, point] = 1
-
-        edge_index = torch.tensor(np.nonzero(adjacency_matrix))
-        edge_lengths = (
-            torch.tensor(distance_matrix[np.nonzero(adjacency_matrix)])
-            .reshape((edge_index.shape[1], 1))
-            .type(torch.FloatTensor)
-        )
         # Normalize the lengths using min-max normalization
-        edge_lengths = (edge_lengths - min(edge_lengths)) / (
-            max(edge_lengths) - min(edge_lengths)
-        )
+        # edge_lengths = (edge_lengths - min(edge_lengths)) / (
+        #    max(edge_lengths) - min(edge_lengths)
+        # )
+        # FIXME: return edge lengths when used.
+        return edge_index  # , edge_lengths
 
-        return edge_index, edge_lengths
+    def __make_periodic(self, data, edge_index, edge_count):
+        # Get cell lengths from atomic data.
+        cell = self.__get_cell(data.pos)
+
+        # Loop over all surrounding cells and add ghost atoms.
+        ghost_pos = []
+        ghost_x = []
+        periodic = [-1, 0, 1]
+        for p1 in periodic:
+            for p2 in periodic:
+                for p3 in periodic:
+                    p = [p1, p2, p3]
+                    if p != [0, 0, 0]:
+                        for j in range(self.num_local):
+                            pj = [0, 0, 0]
+                            # Calculate periodic shifted position.
+                            for d in range(3):
+                                pj[d] = float(data.pos[j][d]) + cell[d] * p[d]
+                            # Add this ghost neighbor to any nearby local (real) atom.
+                            for i in range(self.num_local):
+                                edge_count = self.__add_neighbor(
+                                    data, edge_index, edge_count, data.pos[i], pj, i, j
+                                )
+        return edge_count
+
+    def __add_neighbor(self, data, edge_index, edge_count, pi, pj, i, j):
+        distance = distance_3D(pi, pj)
+        if distance <= self.radius:
+            edge_index[0, edge_count] = i
+            edge_index[1, edge_count] = j
+            edge_count += 1
+        return edge_count
+
+    # FIXME: this is a hack that only works for cubic crystals - the dataset should hold this unit cell information directly.
+    def __get_cell(self, local_atoms):
+        cell = [0, 0, 0]
+        max_cell = list(torch.amax(local_atoms, 0))
+        for d in range(3):
+            # Assume this is a perfect crystal and find atoms with a single bond length between them in each dimension.
+            bond_length = 0.0
+            bond_index = 0
+            while bond_length < 1e-9:
+                bond_length = abs(
+                    local_atoms[bond_index][d] - local_atoms[bond_index + 1][d]
+                )
+                bond_index += 1
+            cell[d] = max_cell[d].item() + bond_length.item()
+        return cell
 
     def __stratified_sampling(self, dataset: [Data], subsample_percentage: float):
         """Given the dataset and the percentage of data you want to extract from it, method will

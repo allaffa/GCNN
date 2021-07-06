@@ -405,11 +405,8 @@ def load_data(dataset_option, config):
     )
 
     # loading serialized data and recalculating neighbourhoods depending on the radius and max num of neighbours
-    loader = SerializedDataLoader()
-    dataset = loader.load_serialized_data(
-        dataset_path=files_dir,
-        config=config["NeuralNetwork"],
-    )
+    loader = SerializedDataLoader(config["NeuralNetwork"])
+    dataset = loader.load_serialized_data(dataset_path=files_dir)
 
     return dataset
 

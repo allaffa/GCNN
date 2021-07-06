@@ -22,7 +22,8 @@
             "hidden_dim": 5,
             "num_conv_layers": 6,
             "num_sharedlayers": 2,
-            "task_weights": [1.0, 1.0, 1.0]
+            "task_weights": [1.0, 1.0, 1.0],
+            "periodic": "False"
         },
         "Variables_of_interest": {
             "input_node_features": [0],
@@ -41,4 +42,3 @@
         }
     }
 }
-

@@ -1,4 +1,4 @@
-import os
+import os, numpy as np
 import torch
 from torch_geometric.data import Data
 from torch_geometric.utils import degree
@@ -63,7 +63,11 @@ def generate_model(
 
     _, device = get_device(use_gpu)
 
-    num_atoms = dataset[0].num_nodes  # FIXME: assumes constant number of atoms
+    # FIXME: assumes constant number of atoms
+    num_atoms = dataset[0].num_nodes
+    # FIXME: assumes constant number of edges
+    _, neighbor_counts = np.unique(dataset[0].edge_index[0], return_counts=True)
+    max_neighbours = np.max(neighbor_counts)
 
     if model_type == "GIN":
         model = GINStack(
@@ -75,7 +79,7 @@ def generate_model(
         ).to(device)
 
     elif model_type == "PNN":
-        deg = torch.zeros(config["max_neighbours"] + 1, dtype=torch.long)
+        deg = torch.zeros(max_neighbours + 1, dtype=torch.long)
         for data in dataset:
             d = degree(data.edge_index[1], num_nodes=data.num_nodes, dtype=torch.long)
             deg += torch.bincount(d, minlength=deg.numel())
@@ -113,7 +117,7 @@ def generate_model(
             output_dim=config["output_dim"],
             num_nodes=num_atoms,
             hidden_dim=config["hidden_dim"],
-            max_degree=config["max_neighbours"],
+            max_degree=max_neighbours,
             num_conv_layers=config["num_conv_layers"],
         ).to(device)
 
