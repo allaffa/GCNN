@@ -132,12 +132,12 @@ class RawDataLoader:
                 (abs(data.y[0]) - min_structure_free_energy),
                 (max_structure_free_energy - min_structure_free_energy),
             )
-            data.x[:, 1] = tensor_divide(
-                (data.x[:, 1] - min_charge_density),
-                (max_charge_density - min_charge_density),
-            )
-            data.x[:, 2] = tensor_divide(
-                (data.x[:, 2] - min_magnetic_moment),
-                (max_magnetic_moment - min_magnetic_moment),
-            )
+            #data.x[:, 1] = tensor_divide(
+            #    (data.x[:, 1] - min_charge_density),
+            #    (max_charge_density - min_charge_density),
+            #)
+            #data.x[:, 2] = tensor_divide(
+            #    (data.x[:, 2] - min_magnetic_moment),
+            #    (max_magnetic_moment - min_magnetic_moment),
+            #)
         return dataset
