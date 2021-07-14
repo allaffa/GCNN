@@ -18,6 +18,8 @@ from data_utils.dataset_descriptors import (
 )
 from utils.models_setup import generate_model
 from utils.visualizer import Visualizer
+import numpy as np
+import matplotlib.pyplot as plt
 
 
 def train_validate_test_normal(
@@ -40,75 +42,191 @@ def train_validate_test_normal(
         """
     model.to(device)
     num_epoch = config["num_epoch"]
+    trainlib = []
+    vallib = []
+    testlib = []  # total loss tracking for train/vali/test
+    tasklib = []
+    tasklib_test = []
+    tasklib_vali = []  # loss tracking for summation across all atoms/nodes
+    tasklib_nodes = []
+    tasklib_test_nodes = []
+    tasklib_vali_nodes = []  # probably not needed
+
+    x_atomfeature = []
+    for data in test_loader.dataset:
+        x_atomfeature.append(data.x)
+    if 0:  # visualizing of initial conditions
+        test_rmse = test(test_loader, model, config["output_dim"])
+        true_values = test_rmse[3]
+        predicted_values = test_rmse[4]
+        for ihead in range(model.num_heads):
+            visualizer = Visualizer(model_with_config_name)
+            visualizer.add_test_values(
+                true_values=true_values[ihead], predicted_values=predicted_values[ihead]
+            )
+            visualizer.create_scatter_plot_atoms_hist(ihead, x_atomfeature, -1)
+
     for epoch in range(0, num_epoch):
-        train_mae = train(train_loader, model, optimizer, config["output_dim"])
-        val_mae = validate(val_loader, model, config["output_dim"])
+        train_mae, train_taskserr, train_taskserr_nodes = train(
+            train_loader, model, optimizer, config["output_dim"]
+        )
+        val_mae, val_taskserr, val_taskserr_nodes = validate(
+            val_loader, model, config["output_dim"]
+        )
         test_rmse = test(test_loader, model, config["output_dim"])
         scheduler.step(val_mae)
         writer.add_scalar("train error", train_mae, epoch)
         writer.add_scalar("validate error", val_mae, epoch)
         writer.add_scalar("test error", test_rmse[0], epoch)
+        for ivar in range(model.num_heads):
+            writer.add_scalar(
+                "train error of task" + str(ivar), train_taskserr[ivar], epoch
+            )
 
         print(
             f"Epoch: {epoch:02d}, Train MAE: {train_mae:.8f}, Val MAE: {val_mae:.8f}, "
             f"Test RMSE: {test_rmse[0]:.8f}"
         )
+        print("Tasks MAE:", train_taskserr)
+
+        trainlib.append(train_mae)
+        vallib.append(val_mae)
+        testlib.append(test_rmse[0])
+        tasklib.append(train_taskserr)
+        tasklib_vali.append(val_taskserr)
+        tasklib_test.append(test_rmse[1])
+
+        tasklib_nodes.append(train_taskserr_nodes)
+        tasklib_vali_nodes.append(val_taskserr_nodes)
+        tasklib_test_nodes.append(test_rmse[2])
+
+        ###tracking the solution evolving with training
+        # true_values=test_rmse[3]; predicted_values=test_rmse[4]
+        # for ihead in range(model.num_heads):
+        #    visualizer = Visualizer(model_with_config_name)
+        #    visualizer.add_test_values(
+        #        true_values=true_values[ihead], predicted_values=predicted_values[ihead]
+        #    )
+        #    visualizer.create_scatter_plot_atoms_hist(ihead, x_atomfeature,epoch)
+
     # At the end of training phase, do the one test run for visualizer to get latest predictions
-    visualizer = Visualizer(model_with_config_name)
-    test_rmse, true_values, predicted_values = test(
+    test_rmse, test_taskserr, test_taskserr_nodes, true_values, predicted_values = test(
         test_loader, model, config["output_dim"]
     )
-    visualizer.add_test_values(
-        true_values=true_values, predicted_values=predicted_values
+
+    for ihead in range(model.num_heads):
+        visualizer = Visualizer(model_with_config_name)
+        visualizer.add_test_values(
+            true_values=true_values[ihead], predicted_values=predicted_values[ihead]
+        )
+        visualizer.create_scatter_plot(ihead)
+        visualizer.create_scatter_plot_atoms(ihead, x_atomfeature)
+
+    ######plot loss history#####
+    visualizer.plot_history(
+        trainlib,
+        vallib,
+        testlib,
+        tasklib,
+        tasklib_vali,
+        tasklib_test,
+        tasklib_nodes,
+        tasklib_vali_nodes,
+        tasklib_test_nodes,
+        model.hweights,
     )
-    visualizer.create_scatter_plot()
 
 
 def train(loader, model, opt, output_dim):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     total_error = 0
+    tasks_error = np.zeros(model.num_heads)
+    tasks_noderr = np.zeros(model.num_heads)
+
     model.train()
     for data in tqdm(loader):
         data = data.to(device)
         opt.zero_grad()
         pred = model(data)
-        loss = model.loss_rmse(pred, data.y)
+        loss, tasks_rmse, tasks_nodes = model.loss_rmse(pred, data.y)
         loss.backward()
-        total_error += loss.item() * data.num_graphs
         opt.step()
-    return total_error / len(loader.dataset)
+        total_error += loss.item() * data.num_graphs
+        for itask in range(len(tasks_rmse)):
+            tasks_error[itask] += tasks_rmse[itask].item() * data.num_graphs
+            tasks_noderr[itask] += tasks_nodes[itask].item() * data.num_graphs
+    return (
+        total_error / len(loader.dataset),
+        tasks_error / len(loader.dataset),
+        tasks_noderr / len(loader.dataset),
+    )
 
 
 @torch.no_grad()
 def validate(loader, model, output_dim):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     total_error = 0
+    tasks_error = np.zeros(model.num_heads)
+    tasks_noderr = np.zeros(model.num_heads)
     model.eval()
     for data in tqdm(loader):
         data = data.to(device)
         pred = model(data)
-        error = model.loss_rmse(pred, data.y)
+        error, tasks_rmse, tasks_nodes = model.loss_rmse(pred, data.y)
         total_error += error.item() * data.num_graphs
+        for itask in range(len(tasks_rmse)):
+            tasks_error[itask] += tasks_rmse[itask].item() * data.num_graphs
+            tasks_noderr[itask] += tasks_nodes[itask].item() * data.num_graphs
 
-    return total_error / len(loader.dataset)
+    return (
+        total_error / len(loader.dataset),
+        tasks_error / len(loader.dataset),
+        tasks_noderr / len(loader.dataset),
+    )
 
 
 @torch.no_grad()
 def test(loader, model, output_dim):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     total_error = 0
+    tasks_error = np.zeros(model.num_heads)
+    tasks_noderr = np.zeros(model.num_heads)
     model.eval()
-    true_values = []
-    predicted_values = []
+    true_values = [[] for _ in range(model.num_heads)]
+    predicted_values = [[] for _ in range(model.num_heads)]
+    IImean = [i for i in range(sum(model.head_dims))]
+    if model.inllloss == 1:
+        IImean = [i for i in range(sum(model.head_dims) + model.num_heads)]
+        [
+            IImean.remove(sum(model.head_dims[: ihead + 1]) + (ihead + 1) * 1 - 1)
+            for ihead in range(model.num_heads)
+        ]
     for data in tqdm(loader):
         data = data.to(device)
         pred = model(data)
-        true_values.extend(data.y.tolist())
-        predicted_values.extend(pred.tolist())
-        error = model.loss_rmse(pred, data.y)
+        error, tasks_rmse, tasks_nodes = model.loss_rmse(pred, data.y)
         total_error += error.item() * data.num_graphs
+        for itask in range(len(tasks_rmse)):
+            tasks_error[itask] += tasks_rmse[itask].item() * data.num_graphs
+            tasks_noderr[itask] += tasks_nodes[itask].item() * data.num_graphs
 
-    return total_error / len(loader.dataset), true_values, predicted_values
+        ytrue = torch.reshape(data.y, (-1, sum(model.head_dims)))
+        for ihead in range(model.num_heads):
+            isum = sum(model.head_dims[: ihead + 1])
+            true_values[ihead].extend(
+                ytrue[:, isum - model.head_dims[ihead] : isum].tolist()
+            )
+            predicted_values[ihead].extend(
+                pred[:, IImean[isum - model.head_dims[ihead] : isum]].tolist()
+            )
+
+    return (
+        total_error / len(loader.dataset),
+        tasks_error / len(loader.dataset),
+        tasks_noderr / len(loader.dataset),
+        true_values,
+        predicted_values,
+    )
 
 
 def dataset_loading_and_splitting(

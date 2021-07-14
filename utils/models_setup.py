@@ -32,7 +32,8 @@ def generate_model(model_type: str, input_dim: int, dataset: [Data], config: dic
             num_nodes=dataset[0].num_nodes,
             hidden_dim=config["hidden_dim"],
             num_conv_layers=config["num_conv_layers"],
-            num_shared=1,
+            num_shared=config["num_sharedlayers"],
+            hweights=config["task_weights"],
         ).to(device)
 
     elif model_type == "GAT":

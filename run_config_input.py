@@ -162,6 +162,9 @@ def run_normal_config_file():
     predicted_value_option = {1: 1, 2: 32, 3: 32, 4: 33, 5: 33, 6: 65}
     config["output_dim"] = predicted_value_option[config["predicted_value_option"]]
 
+    if config["predicted_value_option"] < 4:  # single task
+        config["task_weights"] = [1]
+
     dataset_options = {
         1: Dataset.CuAu,
         2: Dataset.FePt,
@@ -214,6 +217,11 @@ def run_normal_config_file():
         + "".join(str(x) for x in config["atom_features"])
         + "-pred_val-"
         + str(config["predicted_value_option"])
+        + "-task_weights-"
+        + "".join(str(weigh) + "-" for weigh in config["task_weights"])
+        + "num_sl-"
+        + str(config["num_sharedlayers"])
+        + "-Loss-RMSE"
     )
 
     writer = SummaryWriter("./logs/" + model_with_config_name)
@@ -224,6 +232,20 @@ def run_normal_config_file():
     print(
         f"Starting training with the configuration: \n{json.dumps(config, indent=4, sort_keys=True)}"
     )
+
+    if (
+        "continue" in config and config["continue"] == 1
+    ):  # starting from an existing model
+        modelstart = config["startfrom"]
+        if not modelstart:
+            modelstart = model_with_config_name
+
+        state_dict = torch.load(
+            f"./logs/{modelstart}/{modelstart}.pk",
+            map_location="cpu",
+        )
+        model.load_state_dict(state_dict)
+
     train_validate_test_normal(
         model,
         optimizer,
