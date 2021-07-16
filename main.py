@@ -6,12 +6,14 @@ from run_config_input import run_normal_config_file, run_normal_terminal_input
 
 def main(choice):
     os.environ["SERIALIZED_DATA_PATH"] = os.getcwd()
+    print("choice: ", choice)
     type_of_run = {
         1: run_with_hyperparameter_optimization,
         2: run_normal_terminal_input,
         3: run_normal_config_file,
     }
-    type_of_run[choice]()
+    print(type_of_run)
+    type_of_run[int(choice)]()
 
 
 if __name__ == "__main__":
@@ -21,4 +23,5 @@ if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Error: must make a choice")
     else:
+        print(sys.argv[1])
         main(sys.argv[1])
