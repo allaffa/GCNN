@@ -44,7 +44,7 @@ def setup_ddp():
     backend = "nccl" if torch.cuda.is_available() else "gloo"
 
     distributed_data_parallelism = False
-    
+
     if not MPI.Is_initialized():
         MPI.Init()
     world_size, world_rank = get_comm_size_and_rank()
