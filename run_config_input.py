@@ -8,7 +8,6 @@ from utils.utils import (
     dataset_loading_and_splitting,
     train_validate_test_normal,
     setup_ddp,
-    kill_mpi_environment,
 )
 from utils.models_setup import generate_model, get_device
 from data_utils.dataset_descriptors import (
