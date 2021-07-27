@@ -1,0 +1,11 @@
+matplotlib
+torch
+tqdm
+tensorboard
+ray[tune]
+hyperopt
+black
+pytest
+pytest-mpi
+mpi4py
+

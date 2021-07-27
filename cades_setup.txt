@@ -1,0 +1,34 @@
+0. Get an interactive job from a queue with GPUs
+
+srun -A ccsd -p gpu_p100 -N 1 -n1 -c1 -G1 --mem=0G -t 01:00:00 --pty /bin/bash
+
+
+1. Set up a python virtual environment called [name-env] and save it in directory [subdir/]
+
+python3 -m venv subdir/name-env
+
+2. Actiate the environment [name-env]
+
+source subdir/name-env/bin/activate
+
+2.1 load PE-gnu for mpi4py installation
+
+module load PE-gnu
+
+3. Install packages part 1
+
+pip3 install -r requirements-cades.txt
+
+
+4. Install packages part 2, from https://pytorch-geometric.readthedocs.io/en/latest/notes/installation.html
+(You can customize your own version as shown in the website)
+ 
+pip install torch-scatter torch-sparse torch-cluster torch-spline-conv torch-geometric -f https://pytorch-geometric.com/whl/torch-1.9.0+cu102.html
+
+Installation done! Next time to run the code,
+
+source subdir/name-env/bin/activate
+module load PE-gnu
+mpirun -np 2 python run_config_input.py
+
+ 
