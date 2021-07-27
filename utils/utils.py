@@ -29,10 +29,6 @@ def get_comm_size_and_rank():
     world_size = 1
     world_rank = 0
     try:
-        """
-        world_size = os.environ["OMPI_COMM_WORLD_SIZE"]
-        world_rank = os.environ["OMPI_COMM_WORLD_RANK"]
-        """
         world_size = MPI.COMM_WORLD.Get_size()
         world_rank = MPI.COMM_WORLD.Get_rank()
     except KeyError:
@@ -48,22 +44,17 @@ def setup_ddp():
     backend = "nccl" if torch.cuda.is_available() else "gloo"
 
     distributed_data_parallelism = False
-    MPI.Init()
+    
+    if not MPI.Is_initialized():
+        MPI.Init()
     world_size, world_rank = get_comm_size_and_rank()
 
     master_addr = "127.0.0.1"
     master_port = "8889"
     try:
-        """
-        world_size = os.environ["OMPI_COMM_WORLD_SIZE"]
-        world_rank = os.environ["OMPI_COMM_WORLD_RANK"]
-        os.environ["WORLD_SIZE"] = world_size
-        os.environ["RANK"] = world_rank
-        """
         os.environ["MASTER_ADDR"] = master_addr
         os.environ["MASTER_PORT"] = master_port
-        world_size = MPI.COMM_WORLD.Get_size()
-        world_rank = MPI.COMM_WORLD.Get_rank()
+        world_size, world_rank = get_comm_size_and_rank()
         if not dist.is_initialized():
             dist.init_process_group(
                 backend=backend, rank=int(world_rank), world_size=int(world_size)
@@ -74,10 +65,6 @@ def setup_ddp():
         print("DDP has to be initialized within a job - Running in sequential mode")
 
     return distributed_data_parallelism, world_size, world_rank
-
-
-def kill_mpi_environment():
-    MPI.Finalize()
 
 
 def train_validate_test_normal(

@@ -17,6 +17,9 @@ from data_utils.dataset_descriptors import (
 )
 import pickle
 
+import mpi4py
+from mpi4py import MPI
+
 
 def run_normal_terminal_input():
     config = {}
@@ -324,7 +327,7 @@ def run_normal_config_file(config_file="./examples/configuration.json"):
             "./logs/" + model_with_config_name + "/" + model_with_config_name + ".pk",
         )
 
-    kill_mpi_environment()
+    MPI.Finalize()
 
 
 if __name__ == "__main__":
