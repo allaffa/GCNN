@@ -19,9 +19,11 @@ from data_utils.dataset_descriptors import (
 from utils.visualizer import Visualizer
 
 import mpi4py
+
 mpi4py.rc.initialize = False
 mpi4py.rc.finalize = False
 from mpi4py import MPI
+
 
 def get_comm_size_and_rank():
     world_size = 1
@@ -76,6 +78,7 @@ def setup_ddp():
 
 def kill_mpi_environment():
     MPI.Finalize()
+
 
 def train_validate_test_normal(
     model,

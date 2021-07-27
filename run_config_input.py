@@ -18,7 +18,6 @@ from data_utils.dataset_descriptors import (
 import pickle
 
 
-
 def run_normal_terminal_input():
     config = {}
     load_from_json = int(
@@ -324,7 +323,7 @@ def run_normal_config_file(config_file="./examples/configuration.json"):
             model.state_dict(),
             "./logs/" + model_with_config_name + "/" + model_with_config_name + ".pk",
         )
-        
+
     kill_mpi_environment()
 
 
@@ -335,4 +334,3 @@ if __name__ == "__main__":
         run_normal_terminal_input()
     else:
         run_normal_config_file()
-        
