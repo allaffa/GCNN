@@ -367,15 +367,18 @@ def load_data(dataset_option, config):
 def transform_raw_data_to_serialized():
     # Loading raw data if necessary
     raw_datasets = ["CuAu_32atoms", "FePt_32atoms", "FeSi_1024atoms"]
-    if len(
-        os.listdir(os.environ["SERIALIZED_DATA_PATH"] + "/serialized_dataset")
-    ) < len(raw_datasets):
-        for raw_dataset in raw_datasets:
-            files_dir = (
-                os.environ["SERIALIZED_DATA_PATH"]
-                + "/dataset/"
-                + raw_dataset
-                + "/output_files/"
-            )
+
+    serialized_dir = os.environ["SERIALIZED_DATA_PATH"] + "/serialized_dataset"
+    if not os.path.exists(serialized_dir):
+        os.mkdir(serialized_dir)
+    for raw_dataset in raw_datasets:
+        serialized_dataset_dir = os.path.join(serialized_dir, raw_dataset)
+        files_dir = (
+            os.environ["SERIALIZED_DATA_PATH"]
+            + "/dataset/"
+            + raw_dataset
+            + "/output_files/"
+        )
+        if not os.path.exists(serialized_dataset_dir):
             loader = RawDataLoader()
             loader.load_raw_data(dataset_path=files_dir)
