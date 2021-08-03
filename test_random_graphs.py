@@ -7,6 +7,7 @@ from utils.random_graph_data import random_graph_data
 from utils.utils import get_comm_size_and_rank
 from test_trained_model import test_trained_model
 
+
 @pytest.mark.mpi()
 @pytest.mark.parametrize("model_type", ["GIN", "GAT", "MFC", "PNN"])
 def pytest_train_model(model_type):
@@ -17,7 +18,7 @@ def pytest_train_model(model_type):
         random_graph_data()
 
     if dist.is_initialized():
-	dist.barrier()
+        dist.barrier()
 
     os.environ["SERIALIZED_DATA_PATH"] = os.getcwd()
 
