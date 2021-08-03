@@ -398,4 +398,4 @@ def transform_raw_data_to_serialized(raw_dataset: str):
             loader.load_raw_data(dataset_path=files_dir)
 
     if dist.is_initialized():
-    	dist.barrier()
+        dist.barrier()
