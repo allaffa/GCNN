@@ -11,6 +11,7 @@ import torch
 torch.manual_seed(0)
 
 
+# Run both with and without MPI under pytest.
 @pytest.mark.parametrize("model_type", ["GIN", "GAT", "MFC", "PNN"])
 def pytest_train_model(model_type):
 

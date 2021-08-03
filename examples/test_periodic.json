@@ -1,0 +1,16 @@
+{
+    "NeuralNetwork": {
+        "Architecture": {
+            "atom_features": [0],
+            "radius": 1.6,
+            "periodic": "True",
+            "predicted_value_option": 1
+        },
+        "Variables_of_interest": {
+            "input_node_features": [0],
+            "output_names": ["none"],
+            "output_index": [0],
+            "type": ["graph"]
+        }
+    }
+}
