@@ -19,7 +19,7 @@ from data_utils.dataset_descriptors import (
 from utils.visualizer import Visualizer
 
 import re
-
+from torch.profiler import profile, ProfilerActivity
 
 def parse_slurm_nodelist(nodelist):
     """
@@ -101,6 +101,7 @@ def setup_ddp():
     elif os.getenv("SLURM_NODELIST") is not None:
         master_addr = parse_slurm_nodelist(os.environ["SLURM_NODELIST"])[0]
 
+    print ('backend,master_addr,master_port:', backend, master_addr, master_port)
     try:
         os.environ["MASTER_ADDR"] = master_addr
         os.environ["MASTER_PORT"] = master_port
@@ -131,6 +132,8 @@ def train_validate_test_normal(
 
     num_epoch = config["Training"]["num_epoch"]
     for epoch in range(0, num_epoch):
+        os.environ["EPOCH"] = str(epoch)
+        os.environ["CONFIG_NAME"] = model_with_config_name
         train_mae = train(
             train_loader, model, optimizer, config["Architecture"]["output_dim"]
         )
@@ -180,6 +183,14 @@ def output_denormalize(y_minmax, true_values, predicted_values):
     return true_values, predicted_values
 
 
+def trace_handler(p):
+    rank = os.getenv("RANK")
+    epoch = os.getenv("EPOCH")
+    model_with_config_name = os.getenv("CONFIG_NAME")
+    print ('Total number of events:', len(p.events()))
+    #p.export_chrome_trace("trace%s-%s-%d.json"%(rank, epoch, p.step_num))
+    torch.profiler.tensorboard_trace_handler("./logs/" + model_with_config_name)(p)
+
 def train(loader, model, opt, output_dim):
 
     if isinstance(model, torch.nn.parallel.distributed.DistributedDataParallel):
@@ -190,18 +201,31 @@ def train(loader, model, opt, output_dim):
     model.train()
 
     total_error = 0
-    for data in tqdm(loader):
-        data = data.to(device)
-        opt.zero_grad()
-        if isinstance(model, torch.nn.parallel.distributed.DistributedDataParallel):
-            pred = model.module(data)
-            loss = model.module.loss_rmse(pred, data.y)
-        else:
-            pred = model(data)
-            loss = model.loss_rmse(pred, data.y)
-        loss.backward()
-        total_error += loss.item() * data.num_graphs
-        opt.step()
+    with profile(
+        activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+        schedule=torch.profiler.schedule(
+            skip_first=10,
+            wait=5,
+            warmup=1,
+            active=3,
+            repeat=1),
+        on_trace_ready=trace_handler,
+        record_shapes=True,
+        with_stack=True,
+        ) as prof:
+        for data in tqdm(loader):
+            data = data.to(device)
+            opt.zero_grad()
+            if isinstance(model, torch.nn.parallel.distributed.DistributedDataParallel):
+                pred = model.module(data)
+                loss = model.module.loss_rmse(pred, data.y)
+            else:
+                pred = model(data)
+                loss = model.loss_rmse(pred, data.y)
+            loss.backward()
+            total_error += loss.item() * data.num_graphs
+            opt.step()
+            prof.step()
     return total_error / len(loader.dataset)
 
 
