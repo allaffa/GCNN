@@ -19,7 +19,7 @@ from data_utils.dataset_descriptors import (
 from utils.visualizer import Visualizer
 
 import re
-from torch.profiler import profile, ProfilerActivity
+from torch.profiler import profile, record_function, ProfilerActivity
 
 def parse_slurm_nodelist(nodelist):
     """
@@ -214,15 +214,19 @@ def train(loader, model, opt, output_dim):
         with_stack=True,
         ) as prof:
         for data in tqdm(loader):
-            data = data.to(device)
-            opt.zero_grad()
-            if isinstance(model, torch.nn.parallel.distributed.DistributedDataParallel):
-                pred = model.module(data)
-                loss = model.module.loss_rmse(pred, data.y)
-            else:
-                pred = model(data)
-                loss = model.loss_rmse(pred, data.y)
-            loss.backward()
+            with record_function('load'):
+                data = data.to(device)
+            with record_function('zero_grad'):
+                opt.zero_grad()
+            with record_function('forward'):
+                if isinstance(model, torch.nn.parallel.distributed.DistributedDataParallel):
+                    pred = model.module(data)
+                    loss = model.module.loss_rmse(pred, data.y)
+                else:
+                    pred = model(data)
+                    loss = model.loss_rmse(pred, data.y)
+            with record_function('backward'):
+                loss.backward()
             total_error += loss.item() * data.num_graphs
             opt.step()
             prof.step()
