@@ -228,7 +228,8 @@ def train(loader, model, opt, output_dim):
             with record_function('backward'):
                 loss.backward()
             total_error += loss.item() * data.num_graphs
-            opt.step()
+            with record_function('optstep'):
+                opt.step()
             prof.step()
     return total_error / len(loader.dataset)
 
