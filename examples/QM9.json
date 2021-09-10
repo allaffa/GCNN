@@ -1,0 +1,59 @@
+{
+    "Dataset": {
+        "name": "QM9",
+        "path": "dsgdb9nsd.xyz/",
+        "format": "XYZ",
+        "num_nodes": 17,
+        "node_positions": {
+            "dim": 3,
+            "column_index": [1,2,3]
+        },
+        "node_features": {
+            "name": ["element"],
+            "dim": [1],
+            "column_index": [0]
+        },
+        "graph_features":{
+            "name": [ "internal_energy"],
+            "dim": [1],
+            "column_index": [12]
+        }
+    },
+    "NeuralNetwork": {
+        "Architecture": {
+            "model_type": "PNN",
+            "radius": 7,
+            "max_neighbours": 5,
+            "hidden_dim": 5,
+            "num_conv_layers": 6,
+            "output_heads": {
+                "graph":{
+                    "num_sharedlayers": 2,
+                    "dim_sharedlayers": 5,
+                    "num_headlayers": 2,
+                    "dim_headlayers": [50,25]
+                },
+                "node": {
+                    "num_headlayers": 2,
+                    "dim_headlayers": [50,25]
+                }
+            },
+            "task_weights": [1.0, 1.0]
+        },
+        "Variables_of_interest": {
+            "input_node_features": [0],
+            "output_names": ["internal_energy"],
+            "output_index": [0],
+            "type": ["graph"],
+            "denormalize_output": "False"
+        },
+        "Training": {
+            "num_epoch": 50,
+            "perc_train": 0.7,
+            "learning_rate": 1e-3,
+            "batch_size": 64,
+            "continue": 0,
+            "startfrom": "existing_model"
+        }
+    }
+}

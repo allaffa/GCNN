@@ -18,7 +18,7 @@ from data_utils.dataset_descriptors import (
 import pickle
 
 
-def run_normal_config_file(config_file="./examples/configuration.json"):
+def run_normal_config_file(config_file="./examples/LSMS.json"):
 
     run_in_parallel, world_size, world_rank = setup_ddp()
 

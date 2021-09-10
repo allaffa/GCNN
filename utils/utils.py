@@ -10,7 +10,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from data_utils.serialized_dataset_loader import (
     SerializedDataLoader,
 )
-from data_utils.raw_dataset_loader import RawDataLoader
+from data_utils.raw_dataset_loader import LSMSDataLoader, XYZDataLoader
 from data_utils.dataset_descriptors import (
     AtomFeatures,
     StructureFeatures,
@@ -378,15 +378,19 @@ def dataset_loading_and_splitting(
     chosen_dataset_option: Dataset,
     distributed_data_parallelism: bool = False,
 ):
-    if chosen_dataset_option in [item.value for item in Dataset]:
-        dataset_chosen = load_data(chosen_dataset_option, config)
-        return split_dataset(
-            dataset=dataset_chosen,
-            batch_size=config["NeuralNetwork"]["Training"]["batch_size"],
-            perc_train=config["NeuralNetwork"]["Training"]["perc_train"],
-            distributed_data_parallelism=distributed_data_parallelism,
-        )
-    else:
+    dataset_chosen = load_data(chosen_dataset_option, config)
+    return split_dataset(
+        dataset=dataset_chosen,
+        batch_size=config["NeuralNetwork"]["Training"]["batch_size"],
+        perc_train=config["NeuralNetwork"]["Training"]["perc_train"],
+        distributed_data_parallelism=distributed_data_parallelism,
+    )
+    if (
+        chosen_dataset_option == Dataset.CuAu_FePt_SHUFFLE
+        or chosen_dataset_option == Dataset.CuAu_TRAIN_FePt_TEST
+        or chosen_dataset_option == Dataset.FePt_TRAIN_CuAu_TEST
+        or chosen_dataset_option == Dataset.FePt_FeSi_SHUFFLE
+    ):
         # FIXME, should re-normalize mixed datasets based on joint min_max
         raise ValueError(
             "Chosen dataset option not yet supported", chosen_dataset_option
@@ -534,10 +538,6 @@ def transform_raw_data_to_serialized(config):
 
     if rank == 0:
         raw_dataset = config["name"]
-        raw_datasets = ["CuAu_32atoms", "FePt_32atoms", "FeSi_1024atoms", "unit_test"]
-        if raw_dataset not in raw_datasets:
-            print("WARNING: requested serialized dataset does not exist.")
-            return
 
         serialized_dir = os.environ["SERIALIZED_DATA_PATH"] + "/serialized_dataset"
         if not os.path.exists(serialized_dir):
@@ -545,13 +545,15 @@ def transform_raw_data_to_serialized(config):
         serialized_dataset_dir = os.path.join(serialized_dir, raw_dataset)
 
         if not os.path.exists(serialized_dataset_dir):
-            loader = RawDataLoader()
             raw_data_path = config["path"]
             if not os.path.isabs(raw_data_path):
                 raw_data_path = os.path.join(os.getcwd(), raw_data_path)
             if not os.path.exists(raw_data_path):
                 os.mkdir(raw_data_path)
-            loader.load_raw_data(dataset_path=raw_data_path, config=config)
+            if config["format"] == "LSMS":
+                LSMSDataLoader(dataset_path=raw_data_path, config=config)
+            elif config["format"] == "XYZ":
+                XYZDataLoader(dataset_path=raw_data_path, config=config)
 
     if dist.is_initialized():
         dist.barrier()

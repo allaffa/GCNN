@@ -4,6 +4,10 @@
         "path": "FePt",
         "format": "LSMS",
         "num_nodes": 32,
+        "node_positions": {
+            "dim": 3,
+            "column_index": [2,3,4]
+        },
         "node_features": {
             "name": ["num_of_protons","charge_density", "magnetic_moment"],
             "dim": [1,1,1],

@@ -2,12 +2,30 @@ import os
 import numpy as np
 import pickle
 import pathlib
+from abc import ABCMeta, abstractmethod
 
 import torch
 from torch_geometric.data import Data
 from torch import tensor
 
 from data_utils.helper_functions import tensor_divide
+
+
+def element_name_to_proton_number(element: str):
+
+    if element == "H":
+        return 1
+    elif element == "C":
+        return 6
+    elif element == "N":
+        return 7
+    elif element == "O":
+        return 8
+    elif element == "F":
+        return 9
+    else:
+        print(element, ": Sorry Max & Pei")
+        exit()
 
 
 class RawDataLoader:
@@ -21,7 +39,18 @@ class RawDataLoader:
         Loads the raw files from specified path, performs the transformation to Data objects and normalization of values.
     """
 
-    def load_raw_data(self, dataset_path: str, config):
+    __metaclass__ = ABCMeta
+
+    node_position_dim = []
+    node_position_col = []
+    node_feature_dim = []
+    node_feature_col = []
+    graph_feature_dim = []
+    graph_feature_col = []
+    num_nodes = 0
+    format = ""
+
+    def __init__(self, dataset_path: str, config):
         """Loads the raw files from specified path, performs the transformation to Data objects and normalization of values.
         After that the serialized data is stored to the serialized_dataset directory.
 
@@ -32,10 +61,14 @@ class RawDataLoader:
         config: shows the target variables information, e.g, location and dimension, in data file
         """
 
-        node_feature_dim = config["node_features"]["dim"]
-        node_feature_col = config["node_features"]["column_index"]
-        graph_feature_dim = config["graph_features"]["dim"]
-        graph_feature_col = config["graph_features"]["column_index"]
+        self.node_position_dim = config["node_positions"]["dim"]
+        self.node_position_col = config["node_positions"]["column_index"]
+        self.node_feature_dim = config["node_features"]["dim"]
+        self.node_feature_col = config["node_features"]["column_index"]
+        self.graph_feature_dim = config["graph_features"]["dim"]
+        self.graph_feature_col = config["graph_features"]["column_index"]
+        self.num_nodes = int(config["num_nodes"])
+        self.format = config["format"]
 
         dataset = []
         assert (
@@ -47,19 +80,13 @@ class RawDataLoader:
                 continue
             f = open(os.path.join(dataset_path, filename), "r", encoding="utf-8")
             all_lines = f.readlines()
-            data_object = self.__transform_input_to_data_object_base(
-                lines=all_lines,
-                node_feature_dim=node_feature_dim,
-                node_feature_col=node_feature_col,
-                graph_feature_dim=graph_feature_dim,
-                graph_feature_col=graph_feature_col,
-            )
+            data_object = self._extract_dataset(lines=all_lines)
             dataset.append(data_object)
             f.close()
 
-        if config["format"] == "LSMS":
+        if self.format == "LSMS":
             for idx, data_object in enumerate(dataset):
-                dataset[idx] = self.__charge_density_update_for_LSMS(data_object)
+                dataset[idx] = self._update_dataset(data_object)
 
         (
             dataset_normalized,
@@ -80,68 +107,58 @@ class RawDataLoader:
             pickle.dump(minmax_graph_feature, f)
             pickle.dump(dataset_normalized, f)
 
-    def __transform_input_to_data_object_base(
-        self,
-        lines: [str],
-        node_feature_dim: list,
-        node_feature_col: list,
-        graph_feature_dim: list,
-        graph_feature_col: list,
-    ):
-        """Transforms lines of strings read from the raw data file to Data object and returns it.
+    @abstractmethod
+    def _extract_dataset(self, lines: [str]):
+        """Transforms raw data to torch_geometric Data and returns it.
 
         Parameters
         ----------
         lines:
           content of data file with all the graph information
-        node_feature_dim:
-          list of dimensions of node features
-        node_feature_col:
-          list of column location/index (start location if dim>1) of node features
-        graph_feature_dim:
-          list of dimensions of graph features
-        graph_feature_col: list,
-          list of column location/index (start location if dim>1) of graph features
 
         Returns
         ----------
         Data
             Data object representing structure of a graph sample.
         """
-        data_object = Data()
+        raise NotImplementedError("Must override _extract_dataset")
 
-        graph_feat = lines[0].split(None, 2)
-        g_feature = []
-        # collect graph features
-        for item in range(len(graph_feature_dim)):
-            for icomp in range(graph_feature_dim[item]):
-                it_comp = graph_feature_col[item] + icomp
-                g_feature.append(float(graph_feat[it_comp].strip()))
-        data_object.y = tensor(g_feature)
+    def _extract_graph_features(self, line: [str]):
+        graph_feat = []
+        for item in range(len(self.graph_feature_dim)):
+            for icomp in range(self.graph_feature_dim[item]):
+                it_comp = self.graph_feature_col[item] + icomp
+                graph_feat.append(float(line[it_comp].strip()))
+        return tensor(graph_feat)
 
-        node_feature_matrix = []
+    def _extract_node_features(self, lines: [str]):
         node_position_matrix = []
-        for line in lines[1:]:
-            node_feat = line.split(None, 11)
-
-            x_pos = float(node_feat[2].strip())
-            y_pos = float(node_feat[3].strip())
-            z_pos = float(node_feat[4].strip())
-            node_position_matrix.append([x_pos, y_pos, z_pos])
+        node_feature_matrix = []
+        for line in lines:
+            node_feat = line.split()
+            pos = []
+            for d in range(self.node_position_dim):
+                pos.append(float(node_feat[self.node_position_col[d]].strip()))
+            node_position_matrix.append(pos)
 
             node_feature = []
-            for item in range(len(node_feature_dim)):
-                for icomp in range(node_feature_dim[item]):
-                    it_comp = node_feature_col[item] + icomp
-                    node_feature.append(float(node_feat[it_comp].strip()))
+            for item in range(len(self.node_feature_dim)):
+                for icomp in range(self.node_feature_dim[item]):
+                    it_comp = self.node_feature_col[item] + icomp
+                    try:
+                        comp = float(node_feat[it_comp].strip())
+                    except ValueError:
+                        comp = float(
+                            element_name_to_proton_number(node_feat[it_comp].strip())
+                        )
+                    node_feature.append(comp)
+
             node_feature_matrix.append(node_feature)
 
-        data_object.pos = tensor(node_position_matrix)
-        data_object.x = tensor(node_feature_matrix)
-        return data_object
+        return tensor(node_position_matrix), tensor(node_feature_matrix)
 
-    def __charge_density_update_for_LSMS(self, data_object: Data):
-        """Calculate charge density for LSMS format
+    def _update_dataset(self, data_object: Data):
+        """Update dataset before normalization.
         Parameters
         ----------
         data_object: Data
@@ -152,10 +169,6 @@ class RawDataLoader:
         Data
             Data object representing structure of a graph sample.
         """
-        num_of_protons = data_object.x[0]
-        charge_density = data_object.x[1]
-        charge_density -= num_of_protons
-        data_object.x[1] = charge_density
         return data_object
 
     def __normalize_dataset(self, dataset: [Data]):
@@ -215,3 +228,43 @@ class RawDataLoader:
                 )
 
         return dataset, minmax_node_feature, minmax_graph_feature
+
+
+class LSMSDataLoader(RawDataLoader):
+    def __init__(self, dataset_path: str, config):
+        super().__init__(dataset_path, config)
+
+    def _extract_dataset(self, lines: [str]):
+        data_object = Data()
+
+        graph_feat = lines[0].split()
+        data_object.y = self._extract_graph_features(graph_feat)
+
+        node_lines = lines[1 : self.num_nodes + 1]
+        data_object.pos, data_object.x = self._extract_node_features(node_lines)
+
+        return data_object
+
+    def _update_dataset(self, data_object: Data):
+        """Update charge density."""
+        num_of_protons = data_object.x[0]
+        charge_density = data_object.x[1]
+        charge_density -= num_of_protons
+        data_object.x[1] = charge_density
+        return data_object
+
+
+class XYZDataLoader(RawDataLoader):
+    def __init__(self, dataset_path: str, config):
+        super().__init__(dataset_path, config)
+
+    def _extract_dataset(self, lines: [str]):
+        data_object = Data()
+
+        graph_feat = lines[1].split()
+        data_object.y = self._extract_graph_features(graph_feat)
+
+        node_lines = lines[2 : self.num_nodes + 2]
+        data_object.pos, data_object.x = self._extract_node_features(node_lines)
+
+        return data_object
