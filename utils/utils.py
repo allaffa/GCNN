@@ -71,6 +71,7 @@ def train_validate_test_normal(
         num_heads=model.num_heads,
         head_dims=model.head_dims,
     )
+    visualizer.num_nodes_plot()
 
     if plot_init_solution:  # visualizing of initial conditions
         test_rmse = test(test_loader, model, verbosity)

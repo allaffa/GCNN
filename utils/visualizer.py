@@ -59,6 +59,9 @@ class Visualizer:
         self.num_nodes = len(node_feature[0])
         self.num_heads = num_heads
         self.head_dims = head_dims
+        self.num_nodes_list = []
+        for graph in node_feature:
+            self.num_nodes_list.append(graph.shape[0])
 
     def __hist2d_contour(self, data1, data2):
         hist2d_pasr, xedge_pasr, yedge_pasr = np.histogram2d(
@@ -638,3 +641,13 @@ class Visualizer:
                 predicted_values[ihead],
                 save_plot=True,
             )
+
+    def num_nodes_plot(
+        self,
+    ):
+        fig, ax = plt.subplots(1, 1, figsize=(8, 8))
+        ax.hist(self.num_nodes_list)
+        ax.set_title("Histogram of graph size in test set")
+        ax.set_xlabel("number of nodes")
+        fig.savefig(f"./logs/{self.model_with_config_name}/num_nodes.png")
+        plt.close()
