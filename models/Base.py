@@ -136,9 +136,11 @@ class Base(torch.nn.Module):
         # shared dense layers for graph level output
         x_graph = global_mean_pool(x, batch)
         # node features for node level output
-        x_nodes = self.node_features_reshape(x, batch)
+        # FIXME: breaks node predictions
+        #x_nodes = self.node_features_reshape(x, batch)
+        batch_size = batch.max() + 1
         outputs = torch.zeros(
-            (x_nodes.shape[0], self.head_dim_sum), dtype=x.dtype, device=x.device
+            (batch_size, self.head_dim_sum), dtype=x.dtype, device=x.device
         )
         istart = 0
         for head_dim, headloc, type_head in zip(
