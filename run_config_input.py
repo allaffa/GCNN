@@ -48,7 +48,8 @@ def run_normal_config_file(config_file="./examples/configuration.json"):
             if graph_size_variable:
                 # FIXME, need to improve node prediction for graphs with variable size
                 raise ValueError(
-                    "Node prediction for variable graph size not yet supported", graph_size_variable
+                    "Node prediction for variable graph size not yet supported",
+                    graph_size_variable,
                 )
             dim_item = (
                 config["Dataset"]["node_features"]["dim"][output_index[item]]

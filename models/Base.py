@@ -98,7 +98,11 @@ class Base(torch.nn.Module):
                         )
                         denselayers.append(ReLU())
                     denselayers.append(
-                        Linear(dim_head_hidden[-1], self.head_dims[ihead]//self.num_nodes + ilossweights_nll * 1)
+                        Linear(
+                            dim_head_hidden[-1],
+                            self.head_dims[ihead] // self.num_nodes
+                            + ilossweights_nll * 1,
+                        )
                     )
                     mlp.append(Sequential(*denselayers))
             else:
@@ -138,7 +142,7 @@ class Base(torch.nn.Module):
         # node features for node level output
         # FIXME: breaks node predictions
         x_nodes = []
-        #x_nodes = self.node_features_reshape(x, batch)
+        # x_nodes = self.node_features_reshape(x, batch)
         batch_size = batch.max() + 1
         outputs = torch.zeros(
             (batch_size, self.head_dim_sum), dtype=x.dtype, device=x.device
