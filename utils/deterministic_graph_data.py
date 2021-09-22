@@ -9,6 +9,9 @@ from sklearn.neighbors import KNeighborsRegressor
 def deterministic_graph_data(
     path: str,
     number_configurations: int = 500,
+    num_unit_cell_x_range: list = [1, 3],
+    num_unit_cell_y_range: list = [1, 3],
+    num_unit_cell_z_range: list = [1, 2],
     num_clusters: int = 3,
 ):
     ###############################################################################################
@@ -38,9 +41,9 @@ def deterministic_graph_data(
 
     ###############################################################################################
     # We assume that the unit cell is Body Center Cubic (BCC)
-    number_unit_cell_x = torch.randint(1,4,(number_configurations,))
-    number_unit_cell_y = torch.randint(1,4,(number_configurations,))
-    number_unit_cell_z = torch.randint(1,4,(number_configurations,))
+    number_unit_cell_x = torch.randint(num_unit_cell_x_range[0],num_unit_cell_x_range[1],(number_configurations,))
+    number_unit_cell_y = torch.randint(num_unit_cell_y_range[0],num_unit_cell_y_range[1],(number_configurations,))
+    number_unit_cell_z = torch.randint(num_unit_cell_z_range[0],num_unit_cell_z_range[1],(number_configurations,))
 
     for configuration in range(number_configurations):
         count_pos = 0

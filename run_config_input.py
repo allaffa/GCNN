@@ -36,6 +36,7 @@ def run_normal_config_file(config_file="./examples/configuration.json"):
         config=config,
         chosen_dataset_option=config["Dataset"]["name"],
     )
+    graph_size_variable = config["Dataset"]["variable_size"]
 
     output_type = config["NeuralNetwork"]["Variables_of_interest"]["type"]
     output_index = config["NeuralNetwork"]["Variables_of_interest"]["output_index"]
@@ -44,6 +45,11 @@ def run_normal_config_file(config_file="./examples/configuration.json"):
         if output_type[item] == "graph":
             dim_item = config["Dataset"]["graph_features"]["dim"][output_index[item]]
         elif output_type[item] == "node":
+            if graph_size_variable:
+                # FIXME, need to improve node prediction for graphs with variable size
+                raise ValueError(
+                    "Node prediction for variable graph size not yet supported", graph_size_variable
+                )
             dim_item = (
                 config["Dataset"]["node_features"]["dim"][output_index[item]]
                 * config["Dataset"]["num_nodes"]
@@ -55,7 +61,6 @@ def run_normal_config_file(config_file="./examples/configuration.json"):
     if (
         "denormalize_output" in config["NeuralNetwork"]["Variables_of_interest"]
         and config["NeuralNetwork"]["Variables_of_interest"]["denormalize_output"]
-        == "True"
     ):
         dataset_path = f"{os.environ['SERIALIZED_DATA_PATH']}/serialized_dataset/{config['Dataset']['name']}.pkl"
         with open(dataset_path, "rb") as f:
@@ -85,7 +90,7 @@ def run_normal_config_file(config_file="./examples/configuration.json"):
             else:
                 raise ValueError("Unknown output type", output_type[item])
     else:
-        config["NeuralNetwork"]["Variables_of_interest"]["denormalize_output"] = "False"
+        config["NeuralNetwork"]["Variables_of_interest"]["denormalize_output"] = False
     config["NeuralNetwork"]["Architecture"]["output_type"] = config["NeuralNetwork"][
         "Variables_of_interest"
     ]["type"]

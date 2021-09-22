@@ -11,6 +11,7 @@
             "validate": "dataset/unit_test_singlehead_validate"}
         },
         "num_nodes": 8,
+        "variable_size": true,
         "node_features": {
             "name": ["x","x2","x3"],
             "dim": [1, 1, 1],
@@ -48,7 +49,7 @@
             "output_names": ["sum_x_x2_x3"],
             "output_index": [0],
             "type": ["graph"],
-            "denormalize_output": "False"
+            "denormalize_output": false
         },
         "Training": {
             "num_epoch": 150,

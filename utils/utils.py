@@ -134,7 +134,7 @@ def train_validate_test_normal(
     )
 
     ##output predictions with unit/not normalized
-    if config["Variables_of_interest"]["denormalize_output"] == "True":
+    if config["Variables_of_interest"]["denormalize_output"]:
         true_values, predicted_values = output_denormalize(
             config["Variables_of_interest"]["y_minmax"], true_values, predicted_values
         )
