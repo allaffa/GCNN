@@ -184,6 +184,21 @@ def output_denormalize(y_minmax, true_values, predicted_values):
 
     return true_values, predicted_values
 
+def find_head_index_for_true(model,data):
+    batch_size = data.batch.max() + 1
+    y_loc = data.y_loc
+    # head size for each sample
+    total_size = [sample[-1] for sample in y_loc]
+    head_index = []
+    for ihead in range(model.num_heads):
+        _head_ind = []
+        for isample in range(batch_size):
+            istart = sum(total_size[:isample]) + y_loc[isample][ihead]
+            iend = sum(total_size[:isample]) + y_loc[isample][ihead + 1]
+            [_head_ind.append(ind) for ind in range(istart, iend)]
+        head_index.append(_head_ind)
+
+    return head_index
 
 def train(loader, model, opt, verbosity):
 
@@ -199,7 +214,7 @@ def train(loader, model, opt, verbosity):
         opt.zero_grad()
 
         pred = model(data)
-        loss, tasks_rmse, tasks_nodes = model.loss_rmse(pred, data.y)
+        loss, tasks_rmse, tasks_nodes = model.loss_rmse(pred, data)
 
         loss.backward()
         opt.step()
@@ -227,7 +242,7 @@ def validate(loader, model, verbosity):
         data = data.to(device)
 
         pred = model(data)
-        error, tasks_rmse, tasks_nodes = model.loss_rmse(pred, data.y)
+        error, tasks_rmse, tasks_nodes = model.loss_rmse(pred, data)
         total_error += error.item() * data.num_graphs
         for itask in range(len(tasks_rmse)):
             tasks_error[itask] += tasks_rmse[itask].item() * data.num_graphs
@@ -262,21 +277,22 @@ def test(loader, model, verbosity):
         data = data.to(device)
 
         pred = model(data)
-        error, tasks_rmse, tasks_nodes = model.loss_rmse(pred, data.y)
+        error, tasks_rmse, tasks_nodes = model.loss_rmse(pred, data)
         total_error += error.item() * data.num_graphs
         for itask in range(len(tasks_rmse)):
             tasks_error[itask] += tasks_rmse[itask].item() * data.num_graphs
             tasks_noderr[itask] += tasks_nodes[itask].item() * data.num_graphs
-
-        ytrue = torch.reshape(data.y, (-1, sum(model.head_dims)))
+        ytrue = data.y #torch.reshape(data.y, (-1, sum(model.head_dims)))
+        head_index=find_head_index_for_true(model,data)
+        istart = 0
         for ihead in range(model.num_heads):
-            isum = sum(model.head_dims[: ihead + 1])
-            true_values[ihead].extend(
-                ytrue[:, isum - model.head_dims[ihead] : isum].tolist()
-            )
-            predicted_values[ihead].extend(
-                pred[:, IImean[isum - model.head_dims[ihead] : isum]].tolist()
-            )
+            head_pre = pred[ihead]
+            pred_shape = head_pre.shape
+            iend = istart + pred_shape[0] * pred_shape[1]
+            head_val = ytrue[head_index[ihead]]
+            istart = iend
+            true_values[ihead].extend(head_val.tolist())
+            predicted_values[ihead].extend(pred[ihead].tolist())
 
     return (
         total_error / len(loader.dataset),
