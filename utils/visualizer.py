@@ -50,7 +50,13 @@ class Visualizer:
     """
 
     def __init__(
-        self, model_with_config_name: str, node_feature: [], num_nodes: [], num_heads=1, head_dims=[1]):
+        self,
+        model_with_config_name: str,
+        node_feature: [],
+        num_nodes: [],
+        num_heads=1,
+        head_dims=[1],
+    ):
         self.true_values = []
         self.predicted_values = []
         self.model_with_config_name = model_with_config_name
