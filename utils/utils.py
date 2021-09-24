@@ -63,13 +63,17 @@ def train_validate_test_normal(
     # preparing for results visualization
     ## collecting node feature
     node_feature = []
-    for data in test_loader.dataset:
-        node_feature.append(data.x)
+    nodes_num_list = []
+    for data in test_loader:
+        node_feature.extend(data.x.tolist())
+        nodes_num_list.extend(data.nodes_num.tolist())
+
     visualizer = Visualizer(
         model_with_config_name,
         node_feature=node_feature,
         num_heads=model.num_heads,
         head_dims=model.head_dims,
+        num_nodes = nodes_num_list,
     )
     visualizer.num_nodes_plot()
 

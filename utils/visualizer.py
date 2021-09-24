@@ -50,8 +50,7 @@ class Visualizer:
     """
 
     def __init__(
-        self, model_with_config_name: str, node_feature: [], num_heads=1, head_dims=[1]
-    ):
+        self, model_with_config_name: str, node_feature: [], num_nodes: [], num_heads=1, head_dims=[1]):
         self.true_values = []
         self.predicted_values = []
         self.model_with_config_name = model_with_config_name
@@ -59,9 +58,7 @@ class Visualizer:
         self.num_nodes = len(node_feature[0])
         self.num_heads = num_heads
         self.head_dims = head_dims
-        self.num_nodes_list = []
-        for graph in node_feature:
-            self.num_nodes_list.append(graph.shape[0])
+        self.num_nodes_list = num_nodes
 
     def __hist2d_contour(self, data1, data2):
         hist2d_pasr, xedge_pasr, yedge_pasr = np.histogram2d(
@@ -610,7 +607,7 @@ class Visualizer:
     ):
         """Creates scatter plots for all head predictions."""
         for ihead in range(self.num_heads):
-            if self.head_dims[ihead] // self.num_nodes == 3:
+            if self.head_dims[ihead] == 3:
                 # vector output
                 self.create_scatter_plot_nodes_vec(
                     output_names[ihead],
