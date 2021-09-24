@@ -14,10 +14,7 @@ class Base(torch.nn.Module):
 
     def _multihead(
         self,
-        output_dim: list,
         num_nodes: int,
-        output_type: list,
-        config_heads: {},
         ilossweights_hyperp: int,
         loss_weights: list,
         ilossweights_nll: int,
@@ -28,21 +25,19 @@ class Base(torch.nn.Module):
         ##One head represent one variable
         ##Head can have different sizes, head_dims;
         ###e.g., 1 for energy, 32 for charge density, 32 or 32*3 for magnetic moments
-        self.num_heads = len(output_dim)
-        self.head_dims = output_dim
-        self.head_type = output_type
+        self.num_heads = len(self.head_dims)
         self.num_nodes = num_nodes
 
         # self.head_dim_sum = sum(self.head_dims) #need to be improved due to num_nodes
 
         # shared dense layers for heads with graph level output
         dim_sharedlayers = 0
-        if "graph" in config_heads:
+        if "graph" in self.config_heads:
             denselayers = []
-            dim_sharedlayers = config_heads["graph"]["dim_sharedlayers"]
+            dim_sharedlayers = self.config_heads["graph"]["dim_sharedlayers"]
             denselayers.append(ReLU())
             denselayers.append(Linear(self.hidden_dim, dim_sharedlayers))
-            for ishare in range(config_heads["graph"]["num_sharedlayers"] - 1):
+            for ishare in range(self.config_heads["graph"]["num_sharedlayers"] - 1):
                 denselayers.append(Linear(dim_sharedlayers, dim_sharedlayers))
                 denselayers.append(ReLU())
             self.graph_shared = Sequential(*denselayers)
@@ -70,8 +65,8 @@ class Base(torch.nn.Module):
         for ihead in range(self.num_heads):
             # mlp for each head output
             if self.head_type[ihead] == "graph":
-                num_head_hidden = config_heads["graph"]["num_headlayers"]
-                dim_head_hidden = config_heads["graph"]["dim_headlayers"]
+                num_head_hidden = self.config_heads["graph"]["num_headlayers"]
+                dim_head_hidden = self.config_heads["graph"]["dim_headlayers"]
                 denselayers = []
                 denselayers.append(Linear(dim_sharedlayers, dim_head_hidden[0]))
                 denselayers.append(ReLU())
@@ -88,11 +83,16 @@ class Base(torch.nn.Module):
                 )
                 head_NN = Sequential(*denselayers)
             elif self.head_type[ihead] == "node":
-                self.node_NN_type = config_heads["node"]["type"]
+                self.node_NN_type = self.config_heads["node"]["type"]
                 head_NN = ModuleList()
-                if self.node_NN_type  == "mlp":
-                    head_NN = mlp_node_feature(self.hidden_dim, self.head_dims[ihead], self.num_nodes, self.hidden_dim_node)
-                elif self.node_NN_type  == "conv":
+                if self.node_NN_type == "mlp":
+                    head_NN = mlp_node_feature(
+                        self.hidden_dim,
+                        self.head_dims[ihead],
+                        self.num_nodes,
+                        self.hidden_dim_node,
+                    )
+                elif self.node_NN_type == "conv":
                     for conv, batch_norm in zip(
                         self.convs_node_hidden, self.batch_norms_node_hidden
                     ):
@@ -114,6 +114,7 @@ class Base(torch.nn.Module):
                     + "; currently only support 'graph' or 'node'"
                 )
             self.heads.append(head_NN)
+
     def forward(self, data):
         x, edge_index, batch = (
             data.x,
@@ -130,93 +131,51 @@ class Base(torch.nn.Module):
         for head_dim, headloc, type_head in zip(
             self.head_dims, self.heads, self.head_type
         ):
-            x_graph_head = x_graph.clone()
             if type_head == "graph":
+                x_graph_head = x_graph.clone()
                 x_graph_head = self.graph_shared(x_graph_head)
                 outputs.append(headloc(x_graph_head))
             else:
                 x_node = x.clone()
                 if self.node_NN_type == "conv":
                     for conv, batch_norm in zip(headloc[0::2], headloc[1::2]):
-                        x_node = F.relu(batch_norm(conv(x=x_node, edge_index=edge_index)))
+                        x_node = F.relu(
+                            batch_norm(conv(x=x_node, edge_index=edge_index))
+                        )
                 else:
                     x_node = headloc(x=x_node, batch=batch)
                 outputs.append(x_node)
         return outputs
 
-    def loss(self, pred, data):
-        # fixme
-        raise ValueError("loss() not ready yet")
-        value = data.y
-        pred_shape = pred.shape
-        value_shape = value.shape
-        if pred_shape != value_shape:
-            value = torch.reshape(value, pred_shape)
-        return F.l1_loss(pred, value)
-
-    def loss_rmse(self, pred, data):
-
+    def loss_rmse(self, pred, value, head_index):
         if self.ilossweights_nll == 1:
-            return self.loss_nll(pred, data)
+            return self.loss_nll(pred, value, head_index)
         elif self.ilossweights_hyperp == 1:
-            return self.loss_hpweighted(pred, data)
-        #fixme
-        raise ValueError("loss_rmse() needs to be updated")
-        pred_shape = pred.shape
-        value_shape = value.shape
-        if pred_shape != value_shape:
-            value = torch.reshape(value, pred_shape)
-        return torch.sqrt(F.mse_loss(pred, value)), [], []
+            return self.loss_hpweighted(pred, value, head_index)
 
-    def loss_nll(self, pred, data):
+    def loss_nll(self, pred, value, head_index):
         # negative log likelihood loss
         # uncertainty to weigh losses in https://openaccess.thecvf.com/content_cvpr_2018/papers/Kendall_Multi-Task_Learning_Using_CVPR_2018_paper.pdf
         # fixme
         raise ValueError("loss_nll() not ready yet")
-        value = data.y
-        pred_shape = pred.shape
-        value_shape = value.shape
-        if pred_shape[0] != value_shape[0]:
-            value = torch.reshape(value, (pred_shape[0], -1))
-            if value.shape[1] != pred.shape[1] - self.num_heads:
-                raise ValueError(
-                    "expected feature dims="
-                    + str(pred.shape[1] - self.num_heads)
-                    + "; actual="
-                    + str(value.shape[1])
-                )
-
         nll_loss = 0
         tasks_rmseloss = []
         loss = GaussianNLLLoss()
         for ihead in range(self.num_heads):
-            isum = sum(self.head_dims[: ihead + 1])
-            ivar = isum + (ihead + 1) * 1 - 1
-
-            head_var = torch.exp(pred[:, ivar])
-            head_pre = pred[:, ivar - self.head_dims[ihead] : ivar]
-            head_val = value[:, isum - self.head_dims[ihead] : isum]
+            head_pre = pred[ihead][:, :-1]
+            pred_shape = head_pre.shape
+            head_val = value[head_index[ihead]]
+            value_shape = head_val.shape
+            if pred_shape != value_shape:
+                head_val = torch.reshape(head_val, pred_shape)
+            head_var = torch.exp(pred[ihead][:, -1])
             nll_loss += loss(head_pre, head_val, head_var)
             tasks_rmseloss.append(torch.sqrt(F.mse_loss(head_pre, head_val)))
 
         return nll_loss, tasks_rmseloss, []
 
-    def loss_hpweighted(self, pred, data):
+    def loss_hpweighted(self, pred, value, head_index):
         # weights for difficult tasks as hyper-parameters
-        value = data.y
-        batch_size = data.batch.max()+1
-        y_loc  = data.y_loc
-        #head size for each sample
-        total_size = [sample[-1] for sample in y_loc]
-        head_index = []
-        for ihead in range(self.num_heads):
-            _head_ind = []
-            for isample in range(batch_size):
-                istart = sum(total_size[:isample]) + y_loc[isample][ihead]
-                iend   = sum(total_size[:isample]) + y_loc[isample][ihead+1]
-                [_head_ind.append(ind) for ind in range(istart,iend)]
-            head_index.append(_head_ind)
-
         tot_loss = 0
         tasks_rmseloss = []
         tasks_nodes = []

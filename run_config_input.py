@@ -46,7 +46,12 @@ def run_normal_config_file(config_file="./examples/configuration.json"):
             dim_item = config["Dataset"]["graph_features"]["dim"][output_index[item]]
         elif output_type[item] == "node":
             if graph_size_variable:
-                if config["NeuralNetwork"]["Architecture"]["output_heads"]["node"]["type"]=="mlp":
+                if (
+                    config["NeuralNetwork"]["Architecture"]["output_heads"]["node"][
+                        "type"
+                    ]
+                    == "mlp"
+                ):
                     raise ValueError(
                         "mlp type of node feature prediction for variable graph size not yet supported",
                         graph_size_variable,

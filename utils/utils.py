@@ -184,7 +184,8 @@ def output_denormalize(y_minmax, true_values, predicted_values):
 
     return true_values, predicted_values
 
-def find_head_index_for_true(model,data):
+
+def find_head_index_for_true(model, data):
     batch_size = data.batch.max() + 1
     y_loc = data.y_loc
     # head size for each sample
@@ -201,7 +202,6 @@ def find_head_index_for_true(model,data):
     return head_index
 
 def train(loader, model, opt, verbosity):
-
     device = next(model.parameters()).device
     tasks_error = np.zeros(model.num_heads)
     tasks_noderr = np.zeros(model.num_heads)
@@ -212,9 +212,10 @@ def train(loader, model, opt, verbosity):
     for data in iterate_tqdm(loader, verbosity):
         data = data.to(device)
         opt.zero_grad()
+        head_index = find_head_index_for_true(model, data)
 
         pred = model(data)
-        loss, tasks_rmse, tasks_nodes = model.loss_rmse(pred, data)
+        loss, tasks_rmse, tasks_nodes = model.loss_rmse(pred, data.y, head_index)
 
         loss.backward()
         opt.step()
@@ -240,9 +241,10 @@ def validate(loader, model, verbosity):
     model.eval()
     for data in iterate_tqdm(loader, verbosity):
         data = data.to(device)
+        head_index = find_head_index_for_true(model, data)
 
         pred = model(data)
-        error, tasks_rmse, tasks_nodes = model.loss_rmse(pred, data)
+        error, tasks_rmse, tasks_nodes = model.loss_rmse(pred, data.y, head_index)
         total_error += error.item() * data.num_graphs
         for itask in range(len(tasks_rmse)):
             tasks_error[itask] += tasks_rmse[itask].item() * data.num_graphs
@@ -275,15 +277,15 @@ def test(loader, model, verbosity):
         ]
     for data in iterate_tqdm(loader, verbosity):
         data = data.to(device)
+        head_index = find_head_index_for_true(model, data)
 
         pred = model(data)
-        error, tasks_rmse, tasks_nodes = model.loss_rmse(pred, data)
+        error, tasks_rmse, tasks_nodes = model.loss_rmse(pred, data.y, head_index)
         total_error += error.item() * data.num_graphs
         for itask in range(len(tasks_rmse)):
             tasks_error[itask] += tasks_rmse[itask].item() * data.num_graphs
             tasks_noderr[itask] += tasks_nodes[itask].item() * data.num_graphs
-        ytrue = data.y #torch.reshape(data.y, (-1, sum(model.head_dims)))
-        head_index=find_head_index_for_true(model,data)
+        ytrue = data.y
         istart = 0
         for ihead in range(model.num_heads):
             head_pre = pred[ihead]

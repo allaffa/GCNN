@@ -115,7 +115,7 @@ class SerializedDataLoader:
             else:
                 raise ValueError("Unknown output type", type[item])
             output_feature.append(feat_)
-            data.y_loc.append(data.y_loc[-1]+feat_.shape[0]*feat_.shape[1])
+            data.y_loc.append(data.y_loc[-1] + feat_.shape[0] * feat_.shape[1])
         data.y = torch.cat(output_feature, 0)
 
     def __compute_edges(self, data: Data, radius: float, max_num_node_neighbours: int):
