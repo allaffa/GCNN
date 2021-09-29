@@ -56,7 +56,7 @@ class SerializedDataLoader:
             _ = pickle.load(f)
             dataset = pickle.load(f)
 
-        edge_index, edge_distances = self.__compute_edges(
+        edge_index, edge_length = self.__compute_edges(
             data=dataset[0],
             radius=config["Architecture"]["radius"],
             max_num_node_neighbours=config["Architecture"]["max_neighbours"],
@@ -64,7 +64,7 @@ class SerializedDataLoader:
 
         for data in dataset:
             data.edge_index = edge_index
-            data.edge_attr = edge_distances
+            data.edge_attr = edge_length
             self.__update_predicted_values(
                 config["Variables_of_interest"]["type"],
                 config["Variables_of_interest"]["output_index"],

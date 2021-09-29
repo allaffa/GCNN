@@ -124,14 +124,17 @@ class Base(torch.nn.Module):
         return out
 
     def forward(self, data):
-        x, edge_index, batch = (
+        x, edge_index, edge_length, batch = (
             data.x,
             data.edge_index,
+            data.edge_attr,
             data.batch,
         )
         ### encoder part ####
         for conv, batch_norm in zip(self.convs, self.batch_norms):
-            x = F.relu(batch_norm(conv(x=x, edge_index=edge_index)))
+            x = F.relu(
+                batch_norm(conv(x=x, edge_index=edge_index, edge_attr=edge_length))
+            )
         #### multi-head decoder part####
         # shared dense layers for graph level output
         x_graph = global_mean_pool(x, batch)
