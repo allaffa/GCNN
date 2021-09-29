@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 import torch.nn as nn
 from torch.nn import ModuleList
-from torch_geometric.nn import GINConv, BatchNorm
+from torch_geometric.nn import GINEConv, BatchNorm
 
 from .Base import Base
 
@@ -30,7 +30,7 @@ class GINStack(Base):
         self.convs = ModuleList()
         self.batch_norms = ModuleList()
         self.convs.append(
-            GINConv(
+            GINEConv(
                 nn.Sequential(
                     nn.Linear(input_dim, self.hidden_dim),
                     nn.ReLU(),
@@ -43,7 +43,7 @@ class GINStack(Base):
 
         self.batch_norms.append(BatchNorm(self.hidden_dim))
         for _ in range(self.num_conv_layers - 1):
-            conv = GINConv(
+            conv = GINEConv(
                 nn.Sequential(
                     nn.Linear(self.hidden_dim, self.hidden_dim),
                     nn.ReLU(),
