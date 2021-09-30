@@ -189,10 +189,12 @@ class RawDataLoader:
                 # find maximum and minimum values for node level features
                 for ifeat in range(num_node_features):
                     self.minmax_node_feature[0, ifeat] = np.minimum(
-                        np.amin(data.x[:, ifeat].numpy()), self.minmax_node_feature[0, ifeat]
+                        np.amin(data.x[:, ifeat].numpy()),
+                        self.minmax_node_feature[0, ifeat],
                     )
                     self.minmax_node_feature[1, ifeat] = np.maximum(
-                        np.amax(data.x[:, ifeat].numpy()), self.minmax_node_feature[1, ifeat]
+                        np.amax(data.x[:, ifeat].numpy()),
+                        self.minmax_node_feature[1, ifeat],
                     )
         for dataset in self.dataset_list:
             for data in dataset:
@@ -208,8 +210,7 @@ class RawDataLoader:
                     data.x[:, ifeat] = tensor_divide(
                         (data.x[:, ifeat] - self.minmax_node_feature[0, ifeat]),
                         (
-                            self.minmax_node_feature[1,  ifeat]
+                            self.minmax_node_feature[1, ifeat]
                             - self.minmax_node_feature[0, ifeat]
                         ),
                     )
-

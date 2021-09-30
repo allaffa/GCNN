@@ -9,10 +9,11 @@ from sklearn.neighbors import KNeighborsRegressor
 def deterministic_graph_data(
     path: str,
     number_configurations: int = 500,
-    num_unit_cell_x_range: list = [1, 3],
-    num_unit_cell_y_range: list = [1, 3],
-    num_unit_cell_z_range: list = [1, 2],
-    num_clusters: int = 3,
+    number_unit_cell_x_range: list = [1, 3],
+    number_unit_cell_y_range: list = [1, 3],
+    number_unit_cell_z_range: list = [1, 2],
+    number_clusters: int = 3,
+    number_neighbors: int = 2,
 ):
     ###############################################################################################
     ###################################   STRUCTURE OF THE DATA  ##################################
@@ -42,13 +43,19 @@ def deterministic_graph_data(
     ###############################################################################################
     # We assume that the unit cell is Body Center Cubic (BCC)
     number_unit_cell_x = torch.randint(
-        num_unit_cell_x_range[0], num_unit_cell_x_range[1], (number_configurations,)
+        number_unit_cell_x_range[0],
+        number_unit_cell_x_range[1],
+        (number_configurations,),
     )
     number_unit_cell_y = torch.randint(
-        num_unit_cell_y_range[0], num_unit_cell_y_range[1], (number_configurations,)
+        number_unit_cell_y_range[0],
+        number_unit_cell_y_range[1],
+        (number_configurations,),
     )
     number_unit_cell_z = torch.randint(
-        num_unit_cell_z_range[0], num_unit_cell_z_range[1], (number_configurations,)
+        number_unit_cell_z_range[0],
+        number_unit_cell_z_range[1],
+        (number_configurations,),
     )
 
     for configuration in range(number_configurations):
@@ -56,8 +63,8 @@ def deterministic_graph_data(
         uc_x = number_unit_cell_x[configuration]
         uc_y = number_unit_cell_y[configuration]
         uc_z = number_unit_cell_z[configuration]
-        number_atoms = 2 * uc_x * uc_y * uc_z
-        positions = torch.zeros(number_atoms, 3)
+        number_nodes = 2 * uc_x * uc_y * uc_z
+        positions = torch.zeros(number_nodes, 3)
         for x in range(uc_x):
             for y in range(uc_y):
                 for z in range(uc_z):

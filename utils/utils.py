@@ -205,6 +205,7 @@ def find_head_index_for_true(model, data):
 
     return head_index
 
+
 def train(loader, model, opt, verbosity):
     device = next(model.parameters()).device
     tasks_error = np.zeros(model.num_heads)
