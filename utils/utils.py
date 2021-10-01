@@ -193,13 +193,13 @@ def find_head_index_for_true(model, data):
     batch_size = data.batch.max() + 1
     y_loc = data.y_loc
     # head size for each sample
-    total_size = [sample[-1] for sample in y_loc]
+    total_size = y_loc[:, -1]
     head_index = []
     for ihead in range(model.num_heads):
         _head_ind = []
         for isample in range(batch_size):
-            istart = sum(total_size[:isample]) + y_loc[isample][ihead]
-            iend = sum(total_size[:isample]) + y_loc[isample][ihead + 1]
+            istart = sum(total_size[:isample]) + y_loc[isample, ihead]
+            iend = sum(total_size[:isample]) + y_loc[isample, ihead + 1]
             [_head_ind.append(ind) for ind in range(istart, iend)]
         head_index.append(_head_ind)
 
