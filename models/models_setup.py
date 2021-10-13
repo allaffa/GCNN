@@ -10,6 +10,7 @@ from .MFCStack import MFCStack
 
 from utils.distributed import get_comm_size_and_rank
 from utils.print_utils import print_distributed
+from utils.time_utils import Timer
 
 
 def get_gpu_list():
@@ -66,6 +67,9 @@ def generate_model(
     _, device = get_device(use_gpu, verbosity_level=verbosity_level)
 
     num_atoms = dataset[0].num_nodes  # FIXME: assumes constant number of atoms
+
+    timer = Timer("generate_model")
+    timer.start()
 
     if model_type == "GIN":
         model = GINStack(
@@ -133,5 +137,7 @@ def generate_model(
 
     else:
         raise ValueError("Unknown model_type: {0}".format(model_type))
+
+    timer.stop()
 
     return model
