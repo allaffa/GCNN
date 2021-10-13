@@ -9,3 +9,4 @@ from .utils import (
 from .distributed import get_comm_size_and_rank
 from .print_utils import print_distributed, iterate_tqdm
 from .visualizer import Visualizer
+from .time_utils import Timer
