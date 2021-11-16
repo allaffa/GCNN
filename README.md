@@ -1,4 +1,6 @@
 # HydraGNN
+# This project has moved: https://github.com/ORNL/HydraGNN
+# This repository is no longer maintained
 
 Distributed PyTorch implementation of multi-headed graph convolutional neural networks
 
